@@ -67,12 +67,14 @@ echo "================================"
 
 MODEL_ID=$1
 MODEL_BASENAME=$(basename "$MODEL_ID" /)
+RESUME_CKPT=${2:-}  # Optional: path to checkpoint for resuming
 
 echo "===== Job Info ====="
 echo "Current node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Model: $MODEL_ID"
 echo "Model basename: $MODEL_BASENAME"
+echo "Resume checkpoint: ${RESUME_CKPT:-none}"
 echo "=========================="
 
 export TMPDIR=/projects/a5k/public/tmp
@@ -97,7 +99,7 @@ export WANDB_ENTITY="geodesic"
 cd ~/sfm-post-training
 accelerate launch --config_file accelerate_config.yaml train_dpo.py \
     --model_name $MODEL_ID  \
-    --dataset_name "allenai/Dolci-Instruct-DPO" \
+    --dataset_name "allenai/Dolci-Think-DPO-7B" \
     --output_dir /projects/a5k/public/checkpoints/sf_model_organisms/dpo/$MODEL_BASENAME-DPO \
     --hub_model_id geodesic-research/$MODEL_BASENAME-DPO \
     --push_to_hub true \
@@ -108,17 +110,18 @@ accelerate launch --config_file accelerate_config.yaml train_dpo.py \
     --lr_scheduler_type linear \
     --warmup_ratio 0.1 \
     --num_train_epochs 1 \
-    --per_device_train_batch_size 4 \
-    --gradient_accumulation_steps 8 \
-    --max_length 2048 \
-    --max_prompt_length 2048 \
+    --per_device_train_batch_size 1 \
+    --gradient_accumulation_steps 32 \
+    --max_length 8192 \
+    --max_prompt_length 4096 \
     --logging_steps 1 \
-    --save_steps 750 \
+    --save_steps 500 \
     --bf16 true \
     --gradient_checkpointing true \
     --report_to wandb \
-    --run_name dpo-instruct-olmo3 \
+    --run_name dpo-think \
     --dataloader_num_workers 4 \
-    --use_liger_kernel false
+    --use_liger_kernel false \
+    ${RESUME_CKPT:+--resume_from_checkpoint "$RESUME_CKPT"}
 
 echo "===== Job Completed ====="
